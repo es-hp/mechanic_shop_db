@@ -40,8 +40,7 @@ def remove_mechanic(ticket_id, mechanic_id):
   
 @service_tickets_bp.route('/', methods=['GET'])
 def get_service_tickets():
-  query = select(ServiceTicket)
-  service_tickets = db.session.execute(query).scalars().all()
+  service_tickets = db.session.execute(select(ServiceTicket)).scalars().all()
   return service_tickets_schema.jsonify(service_tickets), 200
 
 

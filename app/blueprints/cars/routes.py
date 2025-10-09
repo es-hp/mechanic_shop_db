@@ -8,15 +8,16 @@ from app.helpers import get_or_404, load_request_data
 
 @cars_bp.route('/', methods=['POST'])
 def create_car():
+  # Check request (validate)
   car_data = load_request_data(car_schema)
+  # Check if customer exists
   customer_id = car_data['customer_id']
-  customer = db.session.get(Customer, customer_id)
-  if not customer:
-    return jsonify({'message': f'Customer with ID {customer_id} not found.'}), 404
-  query = select(Car).where(Car.vin == car_data['vin'])
-  car_existing = db.session.execute(query).scalars().all()
+  get_or_404(Customer, customer_id)
+  # Check for car duplicate
+  car_existing = db.session.scalar(select(Car).where(Car.vin == car_data['vin']))
   if car_existing:
     return jsonify({'message': f'A car with VIN #{car_data['vin']}  already exists.'}), 400
+  # Create new car instance
   new_car = Car(**car_data)
   db.session.add(new_car)
   db.session.commit()
@@ -25,8 +26,7 @@ def create_car():
 
 @cars_bp.route('/', methods=['GET'])
 def get_cars():
-  query = select(Car)
-  cars = db.session.execute(query).scalars().all()
+  cars = db.session.execute(select(Car)).scalars().all()
   return cars_schema.jsonify(cars), 200
   
 

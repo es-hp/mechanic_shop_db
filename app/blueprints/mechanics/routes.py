@@ -21,8 +21,7 @@ def create_mechanic():
 
 @mechanics_bp.route('/', methods=['GET'])
 def get_mechanics():
-  query = select(Mechanic)
-  mechanics = db.session.execute(query).scalars().all()
+  mechanics = db.session.execute(select(Mechanic)).scalars().all()
   return mechanics_schema.jsonify(mechanics), 200
 
 
