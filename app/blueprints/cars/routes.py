@@ -1,12 +1,14 @@
 from .schemas import car_schema, cars_schema
 from flask import request, jsonify
-from marshmallow import ValidationError
 from sqlalchemy import select
 from app.models import Car, db, Customer
 from . import cars_bp
-from app.helpers import get_or_404, load_request_data
+from app.utils.helpers import get_or_404, load_request_data, paginate
+from app.extensions import limiter, cache
 
+# Create Car
 @cars_bp.route('/', methods=['POST'])
+@limiter.limit('5 per minute')
 def create_car():
   # Check request (validate)
   car_data = load_request_data(car_schema)
@@ -24,19 +26,25 @@ def create_car():
   return car_schema.jsonify(new_car), 201
 
 
+# Get All Cars' Data
 @cars_bp.route('/', methods=['GET'])
+@cache.cached(timeout=60)
 def get_cars():
-  cars = db.session.execute(select(Car)).scalars().all()
-  return cars_schema.jsonify(cars), 200
+  cars = paginate(select(Car), cars_schema)
+  return jsonify(cars['items']), 200
   
 
+# Get Single Car Data
 @cars_bp.route('/<car_vin>', methods=['GET'])
-def get_car(car_id):
-  car = get_or_404(Car, car_id)
+@cache.cached(timeout=60)
+def get_car(car_vin):
+  car = get_or_404(Car, car_vin)
   return car_schema.jsonify(car), 200
 
 
+# Edit Car Data
 @cars_bp.route('/<car_vin>', methods=['PUT'])
+@limiter.limit('5 per minute')
 def edit_car(car_vin):
   car = get_or_404(Car, car_vin)
   car_data = load_request_data(car_schema)
@@ -47,7 +55,9 @@ def edit_car(car_vin):
   return car_schema.jsonify(car), 200
 
 
+# Delete Car
 @cars_bp.route('/<car_vin>', methods=['DELETE'])
+@limiter.limit('5 per minute')
 def delete_car(car_vin):
   car = get_or_404(Car, car_vin)
   db.session.delete(car)

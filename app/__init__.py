@@ -1,12 +1,12 @@
 from flask import Flask
-from .extensions import ma
+from .extensions import ma, limiter, cache
 from .models import db
 from .blueprints.customers import customers_bp
 from .blueprints.cars import cars_bp
 from .blueprints.mechanics import mechanics_bp
 from .blueprints.service_tickets import service_tickets_bp
 from werkzeug.exceptions import HTTPException
-from .helpers import handle_http_exception
+from .utils.helpers import handle_http_exception
 
 def create_app(config_name):
   app = Flask(__name__)
@@ -15,6 +15,8 @@ def create_app(config_name):
   # Initialize extensions
   ma.init_app(app)
   db.init_app(app)
+  limiter.init_app(app)
+  cache.init_app(app)
   
   # Register blueprints
   app.register_blueprint(customers_bp, url_prefix="/customers")

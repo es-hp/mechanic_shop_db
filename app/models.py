@@ -27,6 +27,7 @@ class Customer(Base):
   name: Mapped[str] = mapped_column(String(50), nullable=False)
   phone: Mapped[str] = mapped_column(String(25), nullable=False)
   email: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+  password: Mapped[str] = mapped_column(String(255), nullable=False)
   cars: Mapped[List["Car"]] = relationship(
     back_populates="customer",
     cascade="all, delete-orphan"
@@ -43,7 +44,7 @@ class Car(Base):
   customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"))
   customer: Mapped["Customer"] = relationship(back_populates="cars")
   service_tickets: Mapped[List["ServiceTicket"]] = relationship(
-    back_populates="car",
+    back_populates="cars",
     cascade="all, delete-orphan"
   )
   
@@ -57,7 +58,7 @@ class ServiceTicket(Base):
     default=lambda: datetime.now(timezone.utc)
   )
   car_vin: Mapped[str] = mapped_column(ForeignKey("cars.vin"))
-  car: Mapped["Car"] = relationship(back_populates="service_tickets")
+  cars: Mapped["Car"] = relationship(back_populates="service_tickets")
   mechanics: Mapped[List["Mechanic"]] = relationship(
     secondary=service_ticket_mechanic,
     back_populates="service_tickets"

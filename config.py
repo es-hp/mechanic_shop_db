@@ -1,5 +1,10 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 class DevelopmentConfig:
-  SQLALCHEMY_DATABASE_URI = 'mysql+mysqlconnector://root:1234@localhost/mechanic_shop_db'
+  SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
   DEBUG = True
   
 class TestingConfig:
