@@ -10,11 +10,12 @@ load_dotenv()
 
 SECRET_KEY = os.getenv('SECRET_KEY') or "secret-key-string"
 
-def encode_token(customer_id):
+def encode_token(user_id, role):
   payload = {
     'exp': datetime.now(timezone.utc) + timedelta(days=0, hours=1),
     'iat': datetime.now(timezone.utc),
-    'sub': str(customer_id)
+    'sub': str(user_id),
+    'role': role
   }
   
   token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')

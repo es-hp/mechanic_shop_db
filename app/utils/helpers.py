@@ -19,9 +19,9 @@ def get_or_404(model, obj_id, name="Requested object"):
   return obj
 
 
-def load_request_data(schema):
+def load_request_data(schema, partial=False) -> dict:
   try:
-    return schema.load(request.get_json())
+    return schema.load(request.get_json(), partial=partial)
   except ValidationError as e:
     abort(400, description=e.messages)
     

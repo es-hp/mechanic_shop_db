@@ -43,14 +43,15 @@ def get_car(car_vin):
 
 
 # Edit Car Data
-@cars_bp.route('/<car_vin>', methods=['PUT'])
+@cars_bp.route('/<car_vin>', methods=['PUT', 'PATCH'])
 @limiter.limit('5 per minute')
 def edit_car(car_vin):
+  partial = request.method == 'PATCH'
   car = get_or_404(Car, car_vin)
-  car_data = load_request_data(car_schema)
+  car_data = load_request_data(car_schema, partial=partial)
   for key, value in car_data.items():
-    if hasattr(Car, key):
-      setattr(Car, key, value)
+    if hasattr(car, key):
+      setattr(car, key, value)
   db.session.commit()
   return car_schema.jsonify(car), 200
 

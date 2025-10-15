@@ -1,6 +1,5 @@
 from .schemas import mechanic_schema, mechanics_schema
 from flask import request, jsonify
-from marshmallow import ValidationError
 from sqlalchemy import select
 from app.models import Mechanic, db
 from . import mechanics_bp
@@ -27,17 +26,25 @@ def create_mechanic():
 @mechanics_bp.route('/', methods=['GET'])
 @cache.cached(timeout=60)
 def get_mechanics():
-  query = select(Mechanic).order_by(Mechanic.name)
+  sort = request.args.get('sort') or None
+  if sort == 'ticket_count':
+    query, _ = Mechanic.get_ticket_counts()
+  elif sort == 'salary':
+    query = select(Mechanic).order_by(Mechanic.salary.desc())
+  else:
+    query = select(Mechanic).order_by(Mechanic.name)
   mechanics = paginate(query, mechanics_schema)
   return jsonify(mechanics['items']), 200
+  
 
 
-# Get Single Mechanic Data
-@mechanics_bp.route('/<int:id>', methods=['PUT'])
+# Edit Mechanic Data
+@mechanics_bp.route('/<int:id>', methods=['PUT', 'PATCH'])
 @limiter.limit('10 per minute')
 def edit_mechanic(id):
+  partial = request.method == 'PATCH'
   mechanic = get_or_404(Mechanic, id)
-  mechanic_data = load_request_data(mechanic_schema)  
+  mechanic_data = load_request_data(mechanic_schema, partial=partial)  
   for key, value in mechanic_data.items():
     if hasattr(mechanic, key):
       setattr(mechanic, key, value)

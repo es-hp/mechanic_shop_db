@@ -1,6 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase, relationship, Mapped, mapped_column
-from sqlalchemy import ForeignKey, String, Table, Column, DateTime, Integer, CheckConstraint, Numeric
+from sqlalchemy import ForeignKey, String, Table, Column, DateTime, Integer, CheckConstraint, Numeric, func, select
 from typing import List
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -44,7 +44,7 @@ class Car(Base):
   customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"))
   customer: Mapped["Customer"] = relationship(back_populates="cars")
   service_tickets: Mapped[List["ServiceTicket"]] = relationship(
-    back_populates="cars",
+    back_populates="car",
     cascade="all, delete-orphan"
   )
   
@@ -58,11 +58,14 @@ class ServiceTicket(Base):
     default=lambda: datetime.now(timezone.utc)
   )
   car_vin: Mapped[str] = mapped_column(ForeignKey("cars.vin"))
-  cars: Mapped["Car"] = relationship(back_populates="service_tickets")
+  car: Mapped["Car"] = relationship(back_populates="service_tickets")
   mechanics: Mapped[List["Mechanic"]] = relationship(
     secondary=service_ticket_mechanic,
     back_populates="service_tickets"
   )
+  @property
+  def customer(self):
+    return self.car.customer if self.car else None
   
 @dataclass
 class Mechanic(Base):
@@ -77,3 +80,27 @@ class Mechanic(Base):
     secondary=service_ticket_mechanic,
     back_populates="mechanics"
   )
+  
+  @classmethod
+  def get_ticket_counts(cls):
+    sub_query = (
+      select(service_ticket_mechanic.c.mechanic_id,
+      func.coalesce(func.count(ServiceTicket.id), 0).label('ticket_count')
+      )
+      .join(ServiceTicket, ServiceTicket.id == service_ticket_mechanic.c.service_ticket_id)
+      .group_by(service_ticket_mechanic.c.mechanic_id)
+      .subquery()
+    )
+    query = (
+      select(cls, func.coalesce(sub_query.c.ticket_count, 0).label('ticket_count'))
+      .outerjoin(sub_query, cls.id == sub_query.c.mechanic_id)
+      .order_by(func.coalesce(sub_query.c.ticket_count, 0).desc())
+    )
+    results = db.session.execute(query).all()
+    
+    mechanics = []
+    for mech, count in results:
+      mech.ticket_count = count
+      mechanics.append(mech)
+    
+    return query, mechanics

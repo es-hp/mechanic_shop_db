@@ -1,5 +1,5 @@
 from app.extensions import ma
-from app.models import Customer
+from app.models import Customer, ServiceTicket
 from marshmallow import fields
 from ..cars.schemas import CarSchema
 

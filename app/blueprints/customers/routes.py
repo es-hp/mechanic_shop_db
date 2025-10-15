@@ -24,7 +24,7 @@ def login():
   customer = db.session.execute(query).scalar_one_or_none()
   if not customer or customer.password != password:
     return jsonify({'message': 'Invalid email or password'}), 401
-  auth_token = encode_token(customer.id)
+  auth_token = encode_token(customer.id, role='customer')
   response = {
     'status': 'success',
     'message': 'Successfully logged in',
@@ -58,7 +58,7 @@ def get_customers():
 
 
 # Get Single Customer Data 
-@customers_bp.route("/", methods=['GET'])
+@customers_bp.route("/my-account", methods=['GET'])
 @cache.cached(timeout=60)
 @token_required
 def get_customer(customer_id):
@@ -67,12 +67,13 @@ def get_customer(customer_id):
 
 
 # Edit Customer Data
-@customers_bp.route("/", methods=['PUT'])
+@customers_bp.route("/", methods=['PUT', 'PATCH'])
 @limiter.limit('5 per minute')
 @token_required
 def edit_customer(customer_id):
+  partial = request.method == 'PATCH'
   customer = get_or_404(Customer, customer_id)
-  customer_data = load_request_data(customer_schema)  
+  customer_data = load_request_data(customer_schema, partial=partial)  
   for key, value in customer_data.items():
     if hasattr(customer, key):
       setattr(customer, key, value)
