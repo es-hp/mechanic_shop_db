@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 from functools import wraps
 from flask import request, jsonify
+from app.models import db, Customer, Mechanic
 
 load_dotenv()
 
@@ -15,7 +16,7 @@ def encode_token(user_id, role):
     'exp': datetime.now(timezone.utc) + timedelta(days=0, hours=1),
     'iat': datetime.now(timezone.utc),
     'sub': str(user_id),
-    'role': role
+    'role': str(role)
   }
   
   token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
@@ -32,10 +33,28 @@ def token_required(f):
     # Decode the token
     try:
       data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-      customer_id = data['sub']
+      user_id = data.get('sub')
+      role = data.get('role')
+      
+      if not user_id or not role:
+        return jsonify({'message': 'Invalid token'}), 401
+      
+      try:
+        user_id = int(user_id)
+      except ValueError:
+        return jsonify({'message': 'Invalid ID format'}), 401
+      
+      from app.utils.helpers import get_or_404
+      if role == 'customer':
+        user = get_or_404(Customer, user_id)
+      elif role == 'mechanic':
+        user = get_or_404(Mechanic, user_id)
+      else:
+        return jsonify({'message': 'Invalid role'}), 401
+        
     except jose.exceptions.ExpiredSignatureError:
       return jsonify({'message': 'Token has expired'}), 401
     except jose.exceptions.JWTError:
       return jsonify({'message': 'Invalid token'}), 401
-    return f(customer_id, *args, **kwargs)
+    return f(user, role, *args, **kwargs)
   return decorated

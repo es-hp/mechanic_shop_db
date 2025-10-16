@@ -1,15 +1,18 @@
+from flask import jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase, relationship, Mapped, mapped_column
-from sqlalchemy import ForeignKey, String, Table, Column, DateTime, Integer, CheckConstraint, Numeric, func, select
+from sqlalchemy import ForeignKey, String, Table, Column, DateTime, Integer, CheckConstraint, Numeric, func, select, inspect
 from typing import List
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 
+
 class Base(DeclarativeBase):
   pass
 
 db = SQLAlchemy(model_class=Base)
+
 
 # Association Tables
 service_ticket_mechanic = Table(
@@ -18,6 +21,7 @@ service_ticket_mechanic = Table(
   Column("service_ticket_id", ForeignKey("service_tickets.id"), primary_key=True),
   Column("mechanic_id", ForeignKey("mechanics.id"), primary_key=True)
 )
+
 
 # Models
 @dataclass
@@ -33,6 +37,7 @@ class Customer(Base):
     cascade="all, delete-orphan"
   )
 
+
 @dataclass
 class Car(Base):
   __tablename__ = "cars"
@@ -47,6 +52,7 @@ class Car(Base):
     back_populates="car",
     cascade="all, delete-orphan"
   )
+  
   
 @dataclass
 class ServiceTicket(Base):
@@ -67,6 +73,7 @@ class ServiceTicket(Base):
   def customer(self):
     return self.car.customer if self.car else None
   
+
 @dataclass
 class Mechanic(Base):
   __tablename__ = "mechanics"
@@ -74,7 +81,8 @@ class Mechanic(Base):
   name: Mapped[str] = mapped_column(String(50), nullable=False)
   phone: Mapped[str] = mapped_column(String(25), nullable=False)
   address: Mapped[str] = mapped_column(String(200), nullable=False)
-  email: Mapped[str] = mapped_column(String(100))
+  email: Mapped[str] = mapped_column(String(100), nullable=False)
+  password: Mapped[str] = mapped_column(String(255), nullable=False)
   salary: Mapped[Decimal] = mapped_column(Numeric(10, 2))
   service_tickets: Mapped[List["ServiceTicket"]] = relationship(
     secondary=service_ticket_mechanic,
@@ -83,19 +91,24 @@ class Mechanic(Base):
   
   @classmethod
   def get_ticket_counts(cls):
+    # sub_query: temporary table with mechanic_id, and ticket_count columns
     sub_query = (
-      select(service_ticket_mechanic.c.mechanic_id,
-      func.coalesce(func.count(ServiceTicket.id), 0).label('ticket_count')
+      select(
+        service_ticket_mechanic.c.mechanic_id,
+        func.count(ServiceTicket.id).label('ticket_count')
       )
       .join(ServiceTicket, ServiceTicket.id == service_ticket_mechanic.c.service_ticket_id)
       .group_by(service_ticket_mechanic.c.mechanic_id)
       .subquery()
     )
-    query = (
-      select(cls, func.coalesce(sub_query.c.ticket_count, 0).label('ticket_count'))
-      .outerjoin(sub_query, cls.id == sub_query.c.mechanic_id)
-      .order_by(func.coalesce(sub_query.c.ticket_count, 0).desc())
+    ticket_count_col = func.coalesce(sub_query.c.ticket_count, 0)
+    base_query = (
+      select(cls, ticket_count_col.label('ticket_count'))
+      .outerjoin(sub_query, sub_query.c.mechanic_id == cls.id)
     )
+    
+    query = base_query.order_by(ticket_count_col.desc())
+    
     results = db.session.execute(query).all()
     
     mechanics = []
@@ -103,4 +116,8 @@ class Mechanic(Base):
       mech.ticket_count = count
       mechanics.append(mech)
     
-    return query, mechanics
+    return query, mechanics, ticket_count_col, sub_query, base_query
+  
+  
+
+  
