@@ -2,7 +2,7 @@ from .schemas import service_ticket_schema, service_tickets_schema, edit_ticket_
 from flask import request, jsonify
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from app.models import ServiceTicket, db, Mechanic, Customer, Car
+from app.models import ServiceTicket, db, Mechanic, Customer, Car, Inventory, ServiceTicketInventory
 from . import service_tickets_bp
 from app.utils.helpers import get_or_404, load_request_data, paginate, check_role
 from app.utils.jwt_utils import token_required
@@ -24,7 +24,6 @@ def create_service_ticket(user, role):
   db.session.add(new_service_ticket)
   db.session.commit()
   return service_ticket_schema.jsonify(new_service_ticket), 201
-
 
 
 # Add and/or remove mechanic from service ticket
@@ -146,14 +145,6 @@ def get_service_tickets(user, role):
   return jsonify(service_tickets['items']), 200
 
 
-# # Get service ticket by ticket ID
-# @service_tickets_bp.route('/<int:ticket_id>', methods=['GET'])
-# @cache.cached(timeout=60)
-# @token_required
-# def get_service_ticket(user, role, ticket_id):
-#   service_ticket = get_or_404(ServiceTicket, ticket_id)
-#   return detailed_service_ticket_schema.jsonify(service_ticket), 200
-
 # Get service ticket by ticket ID
 @service_tickets_bp.route('/<int:ticket_id>', methods=['GET'])
 @cache.cached(timeout=60)
@@ -216,3 +207,61 @@ def get_customer_service_tickets(user, role):
     return jsonify({'message': 'No service tickets associated with this account'}), 200
   return jsonify(customer_tickets['items']), 200
   
+
+@service_tickets_bp.route(
+  '/<int:ticket_id>/add-item/<int:item_id>/count/<int:count>',
+  methods=['PATCH']
+)
+@limiter.limit('5 per minute')
+@token_required
+def add_item_service_ticket(user, role, ticket_id, item_id, count):
+  check_role(role, 'mechanic')
+  item = get_or_404(Inventory, item_id)
+  ticket = get_or_404(ServiceTicket, ticket_id)
+  sti = db.session.get(
+    ServiceTicketInventory,
+    {'service_ticket_id': ticket_id, 'inventory_id': item_id}
+  )
+  if sti:
+    sti.quantity += count
+  else:
+    sti = ServiceTicketInventory(
+      service_ticket_id=ticket_id,
+      inventory_id=item_id,
+      quantity=count
+    )
+    db.session.add(sti)
+  db.session.commit()
+  return jsonify(
+    {'message': f"{item.name} added to service ticket {ticket.id}. {item.name}'s current quantity: {sti.quantity}"}
+  ), 200
+
+
+@service_tickets_bp.route(
+  '/<int:ticket_id>/remove-item/<int:item_id>',
+  methods=['PATCH']
+)
+@limiter.limit('5 per minute')
+@token_required
+def remove_item_service_ticket(user, role, ticket_id, item_id):
+  check_role(role, 'mechanic')
+  item = get_or_404(Inventory, item_id)
+  ticket = get_or_404(ServiceTicket, ticket_id)
+  sti = db.session.get(
+    ServiceTicketInventory,
+    {'service_ticket_id': ticket_id, 'inventory_id': item_id}
+  )
+  if not sti:
+    return jsonify({'message': f'{item.name} is not on service ticket {ticket.id}'}), 400
+  else:
+    sti.quantity -= 1
+    if sti.quantity <= 0:
+      db.session.delete(sti)
+      db.session.commit()
+      return jsonify(
+        {'message': f"Successfully removed. {item.name}'s current quantity: {sti.quantity}"}
+      ), 200
+  db.session.commit()
+  return jsonify(
+    {'message': f"Successfully removed. {item.name}'s current quantity: {sti.quantity}"}
+  ), 200

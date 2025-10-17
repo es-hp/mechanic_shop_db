@@ -5,11 +5,11 @@ import os
 from dotenv import load_dotenv
 from functools import wraps
 from flask import request, jsonify
-from app.models import db, Customer, Mechanic
+from app.models import Customer, Mechanic
 
 load_dotenv()
 
-SECRET_KEY = os.getenv('SECRET_KEY') or "secret-key-string"
+SECRET_KEY = os.getenv('SECRET_KEY') or 'secret-key-string'
 
 def encode_token(user_id, role):
   payload = {

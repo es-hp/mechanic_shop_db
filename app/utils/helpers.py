@@ -16,7 +16,7 @@ def handle_http_exception(e):
   return response
 
 
-def get_or_404(model, obj_id, name="Requested object"):
+def get_or_404(model, obj_id, name='Requested object'):
   name = name or model.__name__
   obj = db.session.get(model, obj_id)
   if not obj:
