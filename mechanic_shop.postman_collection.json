@@ -17,7 +17,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\": \"Helen\",\n    \"phone\": \"123-456-7890\",\n    \"email\": \"es.helenpark@gmail.com\"\n}",
+							"raw": "{\n    \"name\": \"Adam\",\n    \"phone\": \"916-331-5114\",\n    \"email\": \"adam@gmail.com\",\n    \"password\": \"mypasSword\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -25,27 +25,15 @@
 							}
 						},
 						"url": {
-							"raw": "{{base_URL}}/customers",
+							"raw": "http://127.0.0.1:5000/customers/",
+							"protocol": "http",
 							"host": [
-								"{{base_URL}}"
+								"127",
+								"0",
+								"0",
+								"1"
 							],
-							"path": [
-								"customers"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Get Customers Data",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_URL}}/customers/",
-							"host": [
-								"{{base_URL}}"
-							],
+							"port": "5000",
 							"path": [
 								"customers",
 								""
@@ -55,18 +43,96 @@
 					"response": []
 				},
 				{
-					"name": "Get Customer Data",
+					"name": "Customer Login",
 					"request": {
-						"method": "GET",
+						"method": "POST",
 						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"jane2@gmail.com\",\n    \"password\": \"test123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
 						"url": {
-							"raw": "{{base_URL}}/customers/1",
+							"raw": "{{base_URL}}/customers/login",
 							"host": [
 								"{{base_URL}}"
 							],
 							"path": [
 								"customers",
-								"1"
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Customers Data",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_URL}}/customers?page=1&per_page=5",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"customers"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "per_page",
+									"value": "5"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Customer Data (As Customer)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_URL}}/customers/account",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"customers",
+								"account"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Customer Data (As Mechanic)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_URL}}/customers/account?customer_id=2",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"customers",
+								"account"
+							],
+							"query": [
+								{
+									"key": "customer_id",
+									"value": "2"
+								}
 							]
 						}
 					},
@@ -79,7 +145,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\": \"Helen Park\",\n    \"phone\": \"123-456-7890\",\n    \"email\": \"es.hpark18@gmail.com\"\n}",
+							"raw": "{   \n    \"email\": \"jane2@gmail.com\",\n    \"name\": \"Jane H. Park\",\n    \"phone\": \"123-456-7890\",\n    \"password\": \"test123\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -87,13 +153,13 @@
 							}
 						},
 						"url": {
-							"raw": "{{base_URL}}/customers/1",
+							"raw": "{{base_URL}}/customers/",
 							"host": [
 								"{{base_URL}}"
 							],
 							"path": [
 								"customers",
-								"1"
+								""
 							]
 						}
 					},
@@ -109,13 +175,12 @@
 							"raw": "{\n    \"name\": \"Helen Park\",\n    \"phone\": \"123-456-7890\",\n    \"email\": \"es.hpark18@gmail.com\"\n}"
 						},
 						"url": {
-							"raw": "{{base_URL}}/customers/1",
+							"raw": "{{base_URL}}/customers",
 							"host": [
 								"{{base_URL}}"
 							],
 							"path": [
-								"customers",
-								"1"
+								"customers"
 							]
 						}
 					},
@@ -133,7 +198,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\": \"Jena\",\n    \"phone\": \"201-555-4789\",\n    \"address\": \"45 Street st. Bergen, NJ 00000\",\n    \"email\": \"jena@myemail.com\",\n    \"salary\": 60000.00\n\n}",
+							"raw": "{\n    \"name\": \"Dave\",\n    \"phone\": \"654-555-8052\",\n    \"address\": \"500 Street st. Bergen, NJ 00000\",\n    \"email\": \"dave@myemail.com\",\n    \"salary\": 70000.00,\n    \"password\": \"456789\"\n\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -152,6 +217,154 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "Mechanic Login",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"lou@myemail.com\",\n    \"password\": \"456789\"\n\n}"
+						},
+						"url": {
+							"raw": "{{base_URL}}/mechanics/login",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"mechanics",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Mechanics - Ticket Count",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_URL}}/mechanics?sort=ticket_count",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"mechanics"
+							],
+							"query": [
+								{
+									"key": "sort",
+									"value": "ticket_count"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Mechanics - Salary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_URL}}/mechanics?sort=salary",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"mechanics"
+							],
+							"query": [
+								{
+									"key": "sort",
+									"value": "salary"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Mechanics - Name",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_URL}}/mechanics",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"mechanics"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Mechanic Data",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_URL}}/mechanics/my-account",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"mechanics",
+								"my-account"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Edit Mechanic",
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "    {\n        \"salary\": \"47000.00\"\n    }",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_URL}}/mechanics/my-account",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"mechanics",
+								"my-account"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Mechanic",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_URL}}/mechanics/5",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"mechanics",
+								"5"
+							]
+						}
+					},
+					"response": []
 				}
 			]
 		},
@@ -165,7 +378,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"vin\": \"51369458154625016\",\n    \"make\": \"Toyota\",\n    \"model\": \"Rav4\",\n    \"year\": 2019,\n    \"color\": \"white\"\n}",
+							"raw": "{\n    \"vin\": \"61549526647513654\",\n    \"make\": \"Toyota\",\n    \"model\": \"Rav4\",\n    \"year\": 2020,\n    \"color\": \"white\",\n    \"customer_id\": 3\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -173,13 +386,96 @@
 							}
 						},
 						"url": {
-							"raw": "{{base_URL}}/cars/",
+							"raw": "{{base_URL}}/cars",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"cars"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Cars Data",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_URL}}/cars",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"cars"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Single Car Data",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_URL}}/cars/164184826136485",
 							"host": [
 								"{{base_URL}}"
 							],
 							"path": [
 								"cars",
-								""
+								"164184826136485"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Edit (PATCH) Car Data",
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"color\": \"silver\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_URL}}/cars/325184581535894",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"cars",
+								"325184581535894"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Car",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"color\": \"blue\"\n}"
+						},
+						"url": {
+							"raw": "{{base_URL}}/cars/325184581535849",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"cars",
+								"325184581535849"
 							]
 						}
 					},
@@ -197,7 +493,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"service_desc\": \"Change tires\"\n\n}",
+							"raw": "{\n    \"service_desc\": \"Service B\",\n    \"car_vin\": \"61549526647513654\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -217,6 +513,204 @@
 					},
 					"response": []
 				},
+				{
+					"name": "Add and/or Remove Mechanic",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"add_mech_ids\": [2],\n    \"remove_mech_ids\": []\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_URL}}/service_tickets/3/edit",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"service_tickets",
+								"3",
+								"edit"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Service Tickets",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_URL}}/service_tickets",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"service_tickets"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Service Tickets By Car",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Jena\",\n    \"phone\": \"201-555-4789\",\n    \"address\": \"45 Street st. Bergen, NJ 00000\",\n    \"email\": \"jena@myemail.com\",\n    \"salary\": 60000.00\n\n}"
+						},
+						"url": {
+							"raw": "{{base_URL}}/service_tickets/by-car/2",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"service_tickets",
+								"by-car",
+								"2"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Service Tickets For Single Customer (As Customer)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_URL}}/service_tickets/by-account",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"service_tickets",
+								"by-account"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Service Tickets For Single Customer (As Mechanic)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_URL}}/service_tickets/by-account?id=2",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"service_tickets",
+								"by-account"
+							],
+							"query": [
+								{
+									"key": "id",
+									"value": "2"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add Item To Service Ticket",
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{base_URL}}/service_tickets/3/add-item/1/count/5",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"service_tickets",
+								"3",
+								"add-item",
+								"1",
+								"count",
+								"5"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Inventory",
+			"item": [
+				{
+					"name": "Create Item",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Part D\",\n    \"price\": 500.00\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_URL}}/inventory/",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"inventory",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Inventory Items",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Inventory Item By ID",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_URL}}/inventory/3",
+							"host": [
+								"{{base_URL}}"
+							],
+							"path": [
+								"inventory",
+								"3"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Archive",
+			"item": [
 				{
 					"name": "Assign Mechanic",
 					"request": {
@@ -260,26 +754,20 @@
 						}
 					},
 					"response": []
-				},
-				{
-					"name": "Get Service Tickets",
-					"request": {
-						"method": "GET",
-						"header": []
-					},
-					"response": []
-				},
-				{
-					"name": "Get Service Ticket",
-					"request": {
-						"method": "GET",
-						"header": []
-					},
-					"response": []
 				}
 			]
 		}
 	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjA2NzU0NDcsImlhdCI6MTc2MDY3MTg0Nywic3ViIjoiMSIsInJvbGUiOiJtZWNoYW5pYyJ9.kwH2idH0XCYgtMyYzNcj1NyJR4ElWC9Iyc4-6QC4caM",
+				"type": "string"
+			}
+		]
+	},
 	"event": [
 		{
 			"listen": "prerequest",
@@ -307,8 +795,7 @@
 	"variable": [
 		{
 			"key": "base_URL",
-			"value": "",
-			"type": "default"
+			"value": ""
 		}
 	]
 }
