@@ -1,7 +1,6 @@
 from .schemas import service_ticket_schema, service_tickets_schema, edit_ticket_mechs_schema, detailed_service_ticket_schema, detailed_service_tickets_schema
 from flask import request, jsonify
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 from app.models import ServiceTicket, db, Mechanic, Customer, Car, Inventory, ServiceTicketInventory
 from . import service_tickets_bp
 from app.utils.helpers import get_or_404, load_request_data, paginate, check_role
