@@ -6,8 +6,9 @@ class MechanicSchema(ma.SQLAlchemyAutoSchema):
   class Meta:
     model = Mechanic
     load_instance = True
-  ticket_count = fields.Integer(dump_only=True)
   salary = fields.Float()
+  ticket_count = fields.Integer(dump_only=True)
+  service_tickets = fields.Pluck('ServiceTicketSchema', 'id', many=True, dump_only=True)
   password = fields.String(required=True, load_only=True)
     
 mechanic_schema = MechanicSchema()

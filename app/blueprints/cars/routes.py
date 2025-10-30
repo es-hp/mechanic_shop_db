@@ -1,11 +1,12 @@
 from .schemas import car_schema, cars_schema, car_schema_dict
 from . import cars_bp
-from flask import request, jsonify
+from flask import abort, request, jsonify
 from sqlalchemy import select
 from app.models import Car, db, Customer
 from app.utils.helpers import get_or_404, load_request_data, update_field_values, paginate, check_role
 from app.utils.jwt_utils import token_required
 from app.extensions import limiter, cache
+from marshmallow import ValidationError
 
 # Create Car
 @cars_bp.route('/', methods=['POST'])
@@ -17,17 +18,16 @@ def create_car(user, role):
   # Check if car with this vin already exists (no duplicates allowed)
   car_existing = db.session.execute(select(Car).where(Car.vin == car_data['vin'])).scalars().first()
   if car_existing:
-    return jsonify({'message': f"A car with VIN #{car_data['vin']}  already exists."}), 400
+    return jsonify({'message': f"A car with VIN #{car_data['vin']} already exists."}), 409
+  
+  car = load_request_data(car_schema, Car)
   
   if role == 'customer':
-    car_data.pop('customer', None)
-    car = car_schema.load(car_data)
     car.customer_id = user.id
-  else:
-    car = car_schema.load(car_data)
-    # Check if customer exists
-    customer_id = car.customer_id
-    get_or_404(Customer, customer_id)
+  elif role == 'mechanic':
+    if not car.customer_id:
+      return jsonify({'message': 'Customer ID is required.'}), 400
+    get_or_404(Customer, car.customer_id)
 
   db.session.add(car)
   db.session.commit()
@@ -40,7 +40,12 @@ def create_car(user, role):
 @token_required
 def get_cars(user, role):
   check_role(role, 'mechanic')
-  cars = paginate(select(Car), cars_schema)
+  sort = request.args.get('sort', default='vin', type=str)
+  if sort == 'customer_id':
+    query = select(Car).order_by(Car.customer_id)
+  else:
+    query = select(Car).order_by(Car.vin)
+  cars = paginate(query, cars_schema)
   return jsonify(cars['items']), 200
   
 
@@ -52,13 +57,12 @@ def get_car(user, role, car_vin):
   check_role(role, ('customer', 'mechanic'))
   car = db.session.execute(select(Car).where(Car.vin == car_vin)).scalars().first()
   if not car:
-    return jsonify({'message': f'Car with VIN {car_vin} not found'}), 404
-  
+    abort(404, description=f'Car with VIN {car_vin} not found')  
   if role == 'mechanic':
     pass
   elif role == 'customer':
     if not any(car.vin == car_vin for car in user.cars):
-      return jsonify({'message': f'Car with VIN {car_vin} not found'}), 404
+      abort(404, description=f'Car with VIN {car_vin} not found')  
   else:
     return jsonify({'message': 'Invalid role'}), 401
   
@@ -98,7 +102,7 @@ def edit_car(user, role, car_vin):
 @limiter.limit('5 per minute')
 @token_required
 def delete_car(user, role, car_vin):
-  
+  check_role(role, ('customer', 'mechanic'))
   car = get_or_404(Car, car_vin)
   db.session.delete(car)
   db.session.commit()

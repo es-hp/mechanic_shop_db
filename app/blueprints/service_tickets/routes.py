@@ -163,10 +163,10 @@ def get_car_service_tickets(user, role, car_num):
   check_role(role, 'customer')
   
   if not user.cars:
-    return jsonify({'message': 'No cars associated with this account'}), 404
+    return jsonify({'message': 'No cars associated with this account'}), 200
   
   if car_num < 1 or car_num > len(user.cars):
-    return jsonify({'message': 'Car not found. Please enter a valid car number.'}), 400
+    return jsonify({'message': 'Car not found. Please enter a valid car number.'}), 404
   car = user.cars[car_num - 1]
   query = (
     select(ServiceTicket)
@@ -181,18 +181,19 @@ def get_car_service_tickets(user, role, car_num):
 
 # Figured out how to get all service tickets for a customer
 @service_tickets_bp.route('/by-account', methods=['GET'])
-# @cache.cached(timeout=1)
+@cache.cached(timeout=1)
 @token_required
 def get_customer_service_tickets(user, role):
   check_role(role, ('customer', 'mechanic'))
   if role == 'customer':
     if not user.cars:
-      return jsonify({'message': 'No cars associated with this account'})
+      return jsonify({'message': 'No cars associated with this account'}), 200
     customer_id = user.id
   elif role == 'mechanic':
     customer_id = request.args.get('id', type=int)
     if not customer_id:
-      return jsonify({'message': 'Missing customer_id in query parameters'}), 400
+      return jsonify({'message': 'Missing id in query parameters for customer ID'}), 400
+    get_or_404(Customer, customer_id)
     
   query = (
     select(ServiceTicket)
@@ -258,9 +259,9 @@ def remove_item_service_ticket(user, role, ticket_id, item_id):
       db.session.delete(sti)
       db.session.commit()
       return jsonify(
-        {'message': f"Successfully removed. {item.name}'s current quantity: {sti.quantity}"}
+        {'message': f"{item.name} removed from service ticket {ticket.id}. {item.name}'s current quantity: {sti.quantity}"}
       ), 200
   db.session.commit()
   return jsonify(
-    {'message': f"Successfully removed. {item.name}'s current quantity: {sti.quantity}"}
+    {'message': f"{item.name} removed from service ticket {ticket.id}. {item.name}'s current quantity: {sti.quantity}"}
   ), 200

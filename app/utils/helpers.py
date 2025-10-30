@@ -11,7 +11,11 @@ from typing import Dict, cast, Any, Type, TypeVar
 
 def handle_http_exception(e):
   response = e.get_response()
-  response.data = jsonify({'error': e.name, 'message': e.description, 'code': e.code}).data
+  if isinstance(e.description, dict):
+    message = e.description
+  else:
+    message = str(e.description)
+  response.data = jsonify({'error': e.name, 'message': message, 'code': e.code}).data
   response.content_type = 'application/json'
   return response
 
@@ -42,6 +46,8 @@ def paginate(query, schema):
   try:
     page = request.args.get('page', default=1, type=int)
     per_page = request.args.get('per_page', default=10, type=int)
+    MAX_PER_PAGE = 100
+    per_page = min(per_page, MAX_PER_PAGE)
     results = db.paginate(query, page=page, per_page=per_page)
   except ValueError:
     abort(400, description='Invalid page or per_page value')
@@ -62,11 +68,11 @@ def handle_login(model, role):
     email = login_info['email']
     password = login_info['password']
   except ValidationError as e:
-    return jsonify({'message': e.messages}), 400
+    abort(400, description=e.messages)
   query = select(model).where(model.email == email)
   user = db.session.execute(query).scalar_one_or_none()
   if not user or user.password != password:
-    return jsonify({'message': 'Invalid email or password'}), 401
+    return jsonify({'message': 'Incorrect email or password'}), 401
   auth_token = encode_token(user.id, role=role)
   response = {
     'status': 'success',

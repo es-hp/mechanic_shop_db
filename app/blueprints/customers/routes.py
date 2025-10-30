@@ -8,6 +8,13 @@ from app.utils.jwt_utils import token_required
 from app.extensions import limiter, cache
 
 
+# Customer Login
+@customers_bp.route('/login', methods=['POST'])
+@limiter.limit('5 per minute')
+def customer_login():
+  return handle_login(Customer, 'customer')
+
+
 # Create Customer
 @customers_bp.route("/", methods=['POST'])
 @limiter.limit('5 per minute')
@@ -16,16 +23,10 @@ def create_customer():
   query = select(Customer).where(Customer.email == new_customer.email)
   customer_existing = db.session.execute(query).scalars().all()
   if customer_existing:
-    return jsonify ({"message": "A customer with this email already exists."}), 400
+    return jsonify ({"message": "A customer with this email already exists."}), 409
   db.session.add(new_customer)
   db.session.commit()
   return customer_schema.jsonify(new_customer), 201
-
-# Customer Login
-@customers_bp.route('/login', methods=['POST'])
-@limiter.limit('5 per minute')
-def customer_login():
-  return handle_login(Customer, 'customer')
 
 
 # Get All Customers' Data
@@ -48,9 +49,9 @@ def get_customer(user, role):
   if role == 'customer':
     customer = user
   elif role == 'mechanic':
-    customer_id = request.args.get('customer_id')
-    if not customer_id:
-      return jsonify({'message': "Missing required parameter 'customer_id'"}), 400
+    customer_id = request.args.get('customer_id', type=int)
+    if customer_id is None:
+      return jsonify({'message': "Missing or invalid required parameter 'customer_id'"}), 400
     
     customer = get_or_404(Customer, customer_id)  
   return customer_schema.jsonify(customer), 200
@@ -81,4 +82,4 @@ def delete_customer(user, role):
   check_role(role, 'customer')
   db.session.delete(user)
   db.session.commit()
-  return jsonify({"message": f"Successfully deleted customer {user.name}"}), 200
+  return jsonify({"message": f"Successfully deleted your account."}), 200

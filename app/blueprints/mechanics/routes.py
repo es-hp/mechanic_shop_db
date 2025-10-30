@@ -23,10 +23,10 @@ def mechanic_login():
 def create_mechanic(user, role):
   check_role(role, 'mechanic')
   new_mechanic = load_request_data(mechanic_schema, Mechanic)  
-  query = select(Mechanic).where(Mechanic.phone == new_mechanic.phone)
+  query = select(Mechanic).where(Mechanic.email == new_mechanic.email)
   mechanic_existing = db.session.execute(query).scalars().all()
   if mechanic_existing:
-    return jsonify({'message': 'A mechanic with this phone number already exists.'}), 400
+    return jsonify({'message': 'A mechanic with this email already exists.'}), 409
   db.session.add(new_mechanic)
   db.session.commit()
   return mechanic_schema.jsonify(new_mechanic), 201
@@ -34,11 +34,11 @@ def create_mechanic(user, role):
 
 # Get All Mechanics' Data
 @mechanics_bp.route('/', methods=['GET'])
-# @cache.cached(timeout=1)
+@cache.cached(timeout=1)
 @token_required
 def get_mechanics(user, role):
   check_role(role, 'mechanic')
-  sort = request.args.get('sort') or 'name'
+  sort = request.args.get('sort', default='name', type=str)
   *rest, ticket_count_col, _, base_query = Mechanic.get_ticket_counts()
   if sort == 'ticket_count':
     query = base_query.order_by(ticket_count_col.desc())
@@ -48,8 +48,6 @@ def get_mechanics(user, role):
     query = base_query.order_by(Mechanic.name)
   mechanics = paginate(query, mechanics_schema)
   return jsonify(mechanics['items']), 200
-
-# query = select(Mechanic).order_by(Mechanic.salary.desc())
 
 
 # Get Single Mechanic Data 

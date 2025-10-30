@@ -1,0 +1,2170 @@
+swagger: "2.0"
+info:
+  title: Mechanic Shop API
+  description: (educational) This is an API to manage the customers, mechanics, cars, service tickets, and inventory of a mechanic shop.
+  version: "1.0.0"
+host: "127.0.0.1:5000"
+schemes:
+  - http
+consumes:
+  - application/json
+produces:
+  - application/json
+securityDefinitions:
+  bearerAuth:
+    type: apiKey
+    name: Authorization
+    in: header
+paths:
+  /customers/login:
+    post:
+      tags:
+        - customers
+      summary: Endpoint for customer login.
+      description: |
+        Authenticate customer and return a token.
+        - ⏱️ Rate limited to 5 requests per minute.
+        - 🚫🔒 No token required to access this route.
+        - 🔑 Returns an authentication token on success.
+        - ⚠️ Returns a 401 error if credentials are incorrect.
+        - `email` and `password` fields are required.
+        - Account must exist.
+      parameters:
+        - in: body
+          name: body
+          description: Email and password fields are required.
+          required: true
+          schema:
+            $ref: "#/definitions/LoginCredentials"
+          x-example:
+            email: john@email.com
+            password: password123
+      responses:
+        200:
+          description: ✅ Successfully logged in.
+          schema:
+            $ref: "#/definitions/LoginResponse"
+          examples:
+            application/json:
+              status: success
+              message: Successfully logged in
+              auth_token: <JWT access token>
+        400:
+          description: |
+            ❌ Invalid or missing input for required fields in the request body.
+            Possible reasons:
+              - Invalid or missing email.
+              - Invalid or missing password.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: ⛔ Unauthorized — incorrect email or password.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 5 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+  /customers:
+    post:
+      tags:
+        - customers
+      summary: Creates a new customer account.
+      description: |
+        Creates a new customer in the system.
+        - ⏱️ Rate limited to 5 requests per minute.
+        - Required: `name`, `phone`, `email`, `password`.
+        - Email must be unique.
+      parameters:
+        - in: body
+          name: body
+          description: Customer information payload
+          required: true
+          schema:
+            $ref: "#/definitions/FullCustomerPayload"
+      responses:
+        201:
+          description: |
+            ✅ Successfully created new customer.
+            - Returns newly created Customer object.
+            - Excludes password.
+          schema:
+            $ref: "#/definitions/SingleCustomerResponse"
+          examples:
+            application/json:
+              cars: []
+              email: john@email.com
+              id: 1
+              name: John Doe
+              phone: "123-456-7890"
+        400:
+          description: |
+            ❌ Invalid input — the request body is missing required fields or contains invalid data.
+            Possible reasons:
+            - Missing one or more required fields: `name`, `phone`, `email`, or `password`.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        409:
+          description: ⚔️ Conflict — a customer with this email already exists.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 5 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+    get:
+      tags:
+        - customers
+      summary: Get an array of all customer data.
+      description: |
+        Returns a paginated list of all customers' details.
+        - 🧠 Response is cached for 1 second.
+        - 🔒 Authentication token required.
+        - 🛠️ Only accessible by mechanics.
+        - Ordered alphabetically by customer's first name.
+        - Excludes passwords.
+        - Includes list of cars with their details, and service ticket IDs associated with each car.
+        - 🔁 Use `page` and `per_page` query parameters to paginate results.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          description: Page number (starting from 1).
+        - name: per_page
+          in: query
+          type: integer
+          default: 10
+          description: Number of results per page (max 100).
+      responses:
+        200:
+          description: ✅ Successfully returned a paginated list of customers.
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/SingleCustomerResponse"
+          examples:
+            application/json:
+              - cars: []
+                email: jane@email.com
+                id: 1
+                name: Jane
+                phone: "555-111-2222"
+              - cars:
+                  - make: Tesla
+                    model: Y
+                    year: 2025
+                    vin: "12345678901234567"
+                    color: silver
+                    service_tickets: []
+                  - make: Toyota
+                    model: Rav4
+                    year: 2000
+                    vin: "98765432109876543"
+                    color: white
+                    service_tickets:
+                      - 1
+                email: john@email.com
+                id: 2
+                name: John
+                phone: "555-222-3333"
+        400:
+          description: ❌ Invalid pagination parameters (`page` or `per_page`)
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: |
+            🔎❓ Resource not found.
+            Possible reasons:
+            - Pagination page does not exist.
+            - Mechanic with ID from token does not exist.
+    put:
+      tags:
+        - customers
+      summary: Edit all data for a single customer.
+      description: |
+        Updates all account information for the authenticated customer.
+        - ⏱️ Rate limited to 5 requests per minute
+        - 🔒 Authentication token required.
+        - 🛠️ Only the customer can edit their own information.
+        - Accepts updates to `name`, `phone`, `email`, `password`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: body
+          name: body
+          description: Customer information payload.
+          required: true
+          schema:
+            $ref: "#/definitions/FullCustomerPayload"
+      responses:
+        200:
+          description: |
+            ✅ Successfully updated customer data.
+            - Returns updated Customer object.
+            - Excludes password.
+          schema:
+            $ref: "#/definitions/SingleCustomerResponse"
+        400:
+          description: |
+            ❌ Invalid input or missing required fields in the request body.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: 🔎❓ ID not found — customer with ID from token does not exist.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 5 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+    patch:
+      tags:
+        - customers
+      summary: Edit partial data for a single customer.
+      description: |
+        Updates any of the account information for the authenticated customer.
+        - ⏱️ Rate limited to 5 requests per minute
+        - 🔒 Authentication token required.
+        - 🛠️ Only the customer can edit their own information.
+        - Accepts updates to `name`, `phone`, `email`, `password`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: body
+          name: body
+          description: Customer information payload.
+          required: true
+          schema:
+            $ref: "#/definitions/PartialCustomerPayload"
+      responses:
+        200:
+          description: |
+            ✅ Successfully updated customer data.
+            - Returns updated Customer object.
+            - Excludes password.
+          schema:
+            $ref: "#/definitions/SingleCustomerResponse"
+        400:
+          description: |
+            ❌ Invalid input(s) in the request body.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: 🔎❓ ID not found — customer with ID from token does not exist.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 5 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+    delete:
+      tags:
+        - customers
+      summary: Delete a single customer account.
+      description: |
+        Permanently remove a customer's data from the database.
+        - ⏱️ Rate limited to 3 requests per minute
+        - 🔒 Authentication token required.
+        - 🛠️ Only the authenticated customer can delete their own account.
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: ✅ Successfully deleted customer account.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: 🔎❓ ID not found — customer with ID from token does not exist.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 3 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+  /customers/account:
+    get:
+      tags:
+        - customers
+      summary: Get data for a single customer.
+      description: |
+        Returns the account details of a specific customer.
+        - 🧠 Response is cached for 1 second.
+        - 🔒 Authentication token required.
+        - 🛠️ Mechanics can access data for any customer using customer ID from query parameter.
+        - 🛠️ Customers can only access their own data.
+        - Excludes passwords.
+        - Includes list of cars with their details, and service ticket IDs associated with each car.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: customer_id
+          in: query
+          type: integer
+          description: Customer ID. Only required if accessed by mechanic.
+      responses:
+        200:
+          description: ✅ Successfully retrieved the customer's data.
+          schema:
+            $ref: "#/definitions/SingleCustomerResponse"
+            examples:
+              application/json:
+                - cars:
+                    - make: Tesla
+                      model: Y
+                      year: 2025
+                      vin: "12345678901234567"
+                      color: silver
+                      service_tickets: []
+                    - make: Toyota
+                      model: Rav4
+                      year: 2000
+                      vin: "98765432109876543"
+                      color: white
+                      service_tickets:
+                        - 1
+                  email: john@email.com
+                  id: 2
+                  name: John
+                  phone: "555-222-3333"
+        400:
+          description: |
+            ❌ Invalid or missing `customer_id` parameter.
+            - This error occurs only when logged in as mechanic.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: 🔎❓ ID not found — user with ID from token does not exist (customer or mechanic).
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+  /mechanics/login:
+    post:
+      tags:
+        - mechanics
+      summary: Endpoint for mechanic login.
+      description: |
+        Authenticate mechanic and return a token.
+        - ⏱️ Rate limited to 5 requests per minute.
+        - 🚫🔒 No token required to access this route.
+        - 🔑 Returns an authentication token on success.
+        - ⚠️ Returns a 401 error if credentials are incorrect.
+        - `email` and `password` fields are required.
+        - Account must exist.
+      parameters:
+        - in: body
+          name: body
+          description: Email and password fields are required.
+          required: true
+          schema:
+            $ref: "#/definitions/LoginCredentials"
+          x-example:
+            email: john@email.com
+            password: password123
+      responses:
+        200:
+          description: ✅ Successfully logged in.
+          schema:
+            $ref: "#/definitions/LoginResponse"
+          examples:
+            application/json:
+              status: success
+              message: Successfully logged in
+              auth_token: <JWT access token>
+        400:
+          description: |
+            ❌ Invalid or missing input for required fields in the request body.
+            Possible reasons:
+              - Invalid or missing email.
+              - Invalid or missing password.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: ⛔ Unauthorized — incorrect email or password.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 5 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+  /mechanics:
+    post:
+      tags:
+        - mechanics
+      summary: Creates a new mechanic account.
+      description: |
+        Creates a new mechanic in the system.
+        - ⏱️ Rate limited to 5 requests per minute.
+        - 🔒 Authentication token required.
+        - 🛠️ Only a mechanic account can create another mechanic account.
+        - Required: `name`, `phone`, `address`, `email`, `password`.
+        - Optional: `salary` (float).
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: body
+          name: body
+          description: Mechanic information payload
+          required: true
+          schema:
+            $ref: "#/definitions/FullMechanicPayload"
+      responses:
+        201:
+          description: |
+            ✅ New Mechanic created successfully.
+            - Returns newly created Mechanic object.
+            - Excludes password.
+          schema:
+            $ref: "#/definitions/SingleMechanicResponse"
+          examples:
+            application/json:
+              address: 123 Main St. City, NY 000000
+              email: john@email.com
+              id: 1
+              name: John Doe
+              phone: "123-456-7890"
+              salary: 0.0
+              service_tickets: []
+        400:
+          description: |
+            ❌ Invalid input — the request body is missing required fields or contains invalid data.
+            Possible reasons:
+            - Missing one or more required fields: `name`, `phone`, `address`, `email`, or `password`.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: 🔎❓ ID not found — mechanic with ID from token does not exist.
+        409:
+          description: ⚔️ Conflict — a mechanic with this email already exists.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 3 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+    get:
+      tags:
+        - mechanics
+      summary: Get an array of all mechanics' data.
+      description: |
+        Returns a paginated list of all mechanics' details.
+        - 🧠 Response is cached for 1 second.
+        - 🔒 Authentication token required.
+        - 🛠️ Only accessible by mechanics.
+        - Excludes passwords.
+        - Includes number of service tickets mechanic is associated with.
+        - Sorting options:
+          - `name` (default) (ascending)
+          - `ticket_count` (descending)
+          - `salary` (descending)
+        - 🔁 Use `page` and `per_page` query parameters to paginate results.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sort
+          in: query
+          type: string
+          required: false
+          description: |
+            Sorts the list of mechanics by a specific field:
+            - `name`: Sort alphabetically (default)
+            - `ticket_count`: Sort by number of tickets assigned (descending)
+            - `salary`: Sort by salary (descending)
+          enum: [name, ticket_count, salary]
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          description: Page number (starting from 1).
+        - name: per_page
+          in: query
+          type: integer
+          default: 10
+          description: Number of results per page (max 100).
+      responses:
+        200:
+          description: ✅ Successfully returned a paginated list of mechanics.
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/Mechanic"
+          examples:
+            application/json:
+              - address: "123 Main St. City, NY 000000"
+                email: john@email.com
+                id: 1
+                name: John
+                phone: "555-456-7890"
+                salary: 0.0
+                service_tickets: []
+                ticket_count: 0
+              - address: "345 Main St. City, NY 000000"
+                email: kate@email.com
+                id: 2
+                name: Kate
+                phone: "555-123-9876"
+                salary: 0.0
+                service_tickets:
+                  - 1
+                  - 2
+                ticket_count: 2
+        400:
+          description: ❌ Invalid pagination parameters (`page` or `per_page`)
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: |
+            🔎❓ Resource not found.
+            Possible reasons:
+            - Pagination page does not exist.
+            - Mechanic with ID from token does not exist.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+  /mechanics/my-account:
+    get:
+      tags:
+        - mechanics
+      summary: Get data for a single mechanic.
+      description: |
+        Returns the account details of the logged in mechanic.
+        - 🧠 Response is cached for 60 seconds.
+        - 🔒 Authentication token required.
+        - 🛠️ Mechanics can only access their own data.
+        - Excludes passwords.
+        - Includes a list of service ticket IDs the mechanic is associated with.
+        - Includes number of service tickets mechanic is associated with.
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: ✅ Successfully retrieved the mechanic's data.
+          schema:
+            $ref: "#/definitions/Mechanic"
+            examples:
+              application/json:
+                - address: "345 Main St. City, NY 000000"
+                  email: kate@email.com
+                  id: 2
+                  name: Kate
+                  phone: "555-123-9876"
+                  salary: 0.0
+                  service_tickets:
+                    - 1
+                    - 2
+                  ticket_count: 2
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: 🔎❓ ID not found — mechanic with ID from token does not exist.
+    put:
+      tags:
+        - mechanics
+      summary: Edit all data for a single mechanic.
+      description: |
+        Updates all account information for the authenticated mechanic.
+        - ⏱️ Rate limited to 10 requests per minute
+        - 🔒 Authentication token required.
+        - 🛠️ Only the mechanic can edit their own information.
+        - Accepts updates to `name`, `phone`, `address`, `email`, `password`, `salary`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: body
+          name: body
+          description: Mechanic information payload.
+          required: true
+          schema:
+            $ref: "#/definitions/FullMechanicPayload"
+      responses:
+        200:
+          description: |
+            ✅ Successfully updated mechanic's data.
+            - Returns updated Mechanic object.
+            - Excludes password.
+          schema:
+            $ref: "#/definitions/SingleMechanicResponse"
+        400:
+          description: |
+            ❌ Invalid input or missing required fields in the request body.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: 🔎❓ ID not found — mechanic with ID from token does not exist.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 10 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+    patch:
+      tags:
+        - mechanics
+      summary: Edit partial data for a single mechanic.
+      description: |
+        Updates any of the account information for the authenticated mechanic.
+        - ⏱️ Rate limited to 10 requests per minute
+        - 🔒 Authentication token required.
+        - 🛠️ Only the mechanic can edit their own information.
+        - Accepts updates to `name`, `phone`, `address`, `email`, `password`, `salary`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: body
+          name: body
+          description: Mechanic information payload.
+          required: true
+          schema:
+            $ref: "#/definitions/PartialMechanicPayload"
+      responses:
+        200:
+          description: |
+            ✅ Successfully updated mechanic's data.
+            - Returns updated Mechanic object.
+            - Excludes password.
+          schema:
+            $ref: "#/definitions/SingleMechanicResponse"
+        400:
+          description: |
+            ❌ Invalid input(s) in the request body.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: 🔎❓ ID not found — mechanic with ID from token does not exist.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 10 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+    delete:
+      tags:
+        - mechanics
+      summary: Delete a single mechanic account.
+      description: |
+        Permanently remove the mechanic's data from the database.
+        - ⏱️ Rate limited to 3 requests per minute
+        - 🔒 Authentication token required.
+        - 🛠️ Only the authenticated mechanic can delete their own account.
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: ✅ Successfully deleted mechanic account.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: 🔎❓ ID not found — mechanic with ID from token does not exist.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 3 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+  /cars:
+    post:
+      tags:
+        - cars
+      summary: Create a new car profile.
+      description: |
+        Creates a new car associated with a customer.
+        - ⏱️ Rate limited to 5 requests per minute.
+        - 🔒 Authentication token required.
+        - Required: `vin`.
+        - VIN must be unique.
+        - If the authenticated user is a **customer**, the car will automatically be linked to their user ID.
+        - If the authenticated user is a **mechanic**, a valid `customer_id` is required.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: body
+          name: body
+          description: Car information payload
+          required: true
+          schema:
+            $ref: "#/definitions/FullCarPayload"
+      responses:
+        201:
+          description: |
+            ✅ Successfully created new car profile.
+            - Returns newly created Car object.
+          schema:
+            $ref: "#/definitions/CarResponse"
+          examples:
+            application/json:
+              color: white
+              customer_id: 1
+              make: Dodge
+              model: Neon
+              service_tickets: []
+              vin: "80224526647584952"
+              year: "2000"
+        400:
+          description: |
+            ❌ Invalid input — the request body is missing required fields or contains invalid data.
+            Possible reasons:
+            - Missing one or more required fields: `vin`, `model`, `make`, `year`, `color`.
+            - Missing `customer_id` when user is authenticated as mechanic.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: 🔎❓ ID not found — user with ID from token does not exist (customer or mechanic).
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        409:
+          description: ⚔️ Conflict — a car with this VIN already exists.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 5 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+    get:
+      tags:
+        - cars
+      summary: Get an array of all car profiles.
+      description: |
+        Returns a paginated list of all car profiles.
+        - 🧠 Response is cached for 60 seconds.
+        - 🔒 Authentication token required.
+        - 🛠️ Only accessible by mechanics.
+        - Sorting options:
+          - `vin` (default) (ascending)
+          - `customer_id` (ascending)
+        - 🔁 Use `page` and `per_page` query parameters to paginate results.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sort
+          in: query
+          type: string
+          required: false
+          description: |
+            Sorts the list of cars by a specific field:
+            - `vin`: Sort ascending (default)
+            - `customer_id`: Sort ascending
+          enum: [vin, customer_id]
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          description: Page number (starting from 1).
+        - name: per_page
+          in: query
+          type: integer
+          default: 10
+          description: Number of results per page (max 100).
+      responses:
+        200:
+          description: ✅ Successfully returned a paginated list of cars.
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/CarResponse"
+          examples:
+            application/json:
+              - color: white
+                customer_id: 1
+                make: Dodge
+                model: Neon
+                service_tickets: []
+                vin: "80224526647584952"
+                year: 2000
+              - color: silver
+                customer_id: 2
+                make: Tesla
+                model: Y
+                service_tickets:
+                  - 1
+                  - 2
+                vin: "12345678901234567"
+                year: 2025
+        400:
+          description: ❌ Invalid pagination parameters (`page` or `per_page`)
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: |
+            🔎❓ Resource not found.
+            Possible reasons:
+            - Pagination page does not exist.
+            - Mechanic with ID from token does not exist.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+  /cars/{car_vin}:
+    get:
+      tags:
+        - cars
+      summary: Get a single car profile by its VIN number.
+      description: |
+        Returns the details of a specific car.
+        - 🧠 Response is cached for 60 seconds.
+        - 🔒 Authentication token required.
+        - 🛠️ Mechanics can access data for any car using the VIN number from path.
+        - 🛠️ Customers can only access their cars' data.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: car_vin
+          in: path
+          required: true
+          type: string
+          description: Car's VIN number.
+      responses:
+        200:
+          description: ✅ Successfully returned a car's profile.
+          schema:
+            $ref: "#/definitions/CarResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: |
+            🔎❓ Resource not found.
+            Possible reasons:
+            - User with ID from token does not exist (customer or mechanic).
+            - Car with provided VIN number not found.
+              - This error will show even if car with provided VIN exists, but is not linked to authenticated customer.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+    put:
+      tags:
+        - cars
+      summary: Edit all data for a single car by VIN number.
+      description: |
+        Updates all information for a specific car.
+        - ⏱️ Rate limited to 5 requests per minute
+        - 🔒 Authentication token required.
+        - 🛠️ The authenticated customer can only edit cars linked to their account.
+        - 🛠️ The authenticated mechanic can edit any car.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: car_vin
+          in: path
+          required: true
+          type: string
+          description: Car's VIN number.
+        - in: body
+          name: body
+          description: Car information payload.
+          required: true
+          schema:
+            $ref: "#/definitions/FullCarPayload"
+      responses:
+        200:
+          description: |
+            ✅ Successfully updated car data.
+            - Returns updated Car object.
+          schema:
+            $ref: "#/definitions/CarResponse"
+        400:
+          description: |
+            ❌ Invalid input or missing required fields in the request body.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: |
+            🔎❓ Resource not found.
+            Possible reasons:
+            - User with ID from token does not exist (customer or mechanic).
+            - Car with provided VIN number not found.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 5 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+    patch:
+      tags:
+        - cars
+      summary: Edit partial data for a single car by VIN number.
+      description: |
+        Updates partial information for a specific car.
+        - ⏱️ Rate limited to 5 requests per minute
+        - 🔒 Authentication token required.
+        - 🛠️ The authenticated customer can only edit cars linked to their account.
+        - 🛠️ The authenticated mechanic can edit any car.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: body
+          name: body
+          description: Car information payload.
+          required: true
+          schema:
+            $ref: "#/definitions/PartialCarPayload"
+      responses:
+        200:
+          description: |
+            ✅ Successfully updated car data.
+            - Returns updated Car object.
+          schema:
+            $ref: "#/definitions/CarResponse"
+        400:
+          description: |
+            ❌ Invalid input(s) in the request body.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: |
+            🔎❓ Resource not found.
+            Possible reasons:
+            - User with ID from token does not exist (customer or mechanic).
+            - Car with provided VIN number not found.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 5 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+    delete:
+      tags:
+        - cars
+      summary: Delete car by VIN number.
+      description: |
+        Permanently remove all car data.
+        - ⏱️ Rate limited to 5 requests per minute
+        - 🔒 Authentication token required.
+        - 🛠️ The authenticated customer can only delete cars linked to their account.
+        - 🛠️ The authenticated mechanic can delete any car.
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: ✅ Successfully deleted car.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: |
+            🔎❓ Resource not found.
+            Possible reasons:
+            - User with ID from token does not exist (customer or mechanic).
+            - Car with provided VIN number not found.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 5 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+  /service_tickets:
+    post:
+      tags:
+        - service tickets
+      summary: Create new service ticket.
+      description: |
+        Creates a new service ticket for a specific car.
+        - ⏱️ Rate limited to 10 requests per minute
+        - 🔒 Authentication token required.
+        - 🛠️ Only an authenticated mechanic can create service tickets.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: body
+          name: body
+          description: Car information payload.
+          required: true
+          schema:
+            $ref: "#/definitions/PartialCarPayload"
+      responses:
+        201:
+          description: |
+            ✅ Successfully created new service ticket.
+            - Returns newly created Service Ticket object.
+          schema:
+            $ref: "#/definitions/ServiceTicketResponse"
+        400:
+          description: |
+            ❌ Invalid input or missing required fields in the request body.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: |
+            🔎❓ Resource not found.
+            Possible reasons:
+            - Mechanic with ID from token does not exist.
+            - Car with provided VIN number not found.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 10 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+    get:
+      tags:
+        - service tickets
+      summary: Get an array of all service tickets for all customers.
+      description: |
+        Returns a paginated list of all service ticket data.
+        - 🧠 Response is cached for 60 seconds.
+        - 🔒 Authentication token required.
+        - 🛠️ Only accessible by authenticated mechanic(s).
+        - Ordered by `created_at` datetime from newest to oldest (descending)
+        - Includes linked customer's `id`, `name`, and `phone`.
+        - 🔁 Use `page` and `per_page` query parameters to paginate results.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          description: Page number (starting from 1).
+        - name: per_page
+          in: query
+          type: integer
+          default: 10
+          description: Number of results per page (max 100).
+      responses:
+        200:
+          description: ✅ Successfully returns a paginated list of service tickets if data is found, or a message if no data exists.
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/DetailedServiceTicketResponse"
+          examples:
+            application/json:
+              found_data:
+                - car:
+                    - color: white
+                      customer_id: 1
+                      make: Dodge
+                      model: Neon
+                      vin: "80224526647584952"
+                      year: 2000
+                  created_at: "2025-10-30T15:23:46"
+                  customer:
+                    - id: 1
+                      name: Jane
+                      phone: "555-111-2222"
+                  id: 2
+                  mechanics:
+                    - John
+                  service_desc: Oil change
+                - car:
+                    - color: silver
+                      customer_id: 2
+                      make: Tesla
+                      model: Y
+                      vin: "12345678901234567"
+                      year: 2025
+                  created_at: "2025-10-30T02:39:06"
+                  customer:
+                    - id: 2
+                      name: John
+                      phone: "555-222-3333"
+                  id: 1
+                  mechanics:
+                    - John
+                  service_desc: Wheel rotation
+              no_data:
+                - message: No service tickets have been created yet
+        400:
+          description: ❌ Invalid pagination parameters (`page` or `per_page`)
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: |
+            🔎❓ Resource not found.
+            Possible reasons:
+            - Pagination page does not exist.
+            - Mechanic with ID from token does not exist.
+  /service_tickets/{ticket_id}/edit:
+    put:
+      tags:
+        - service tickets
+      summary: Updates the mechanics from service ticket by ID.
+      description: |
+        Add and/or remove a single or multiple mechanics from a service ticket by their ID(s).
+        - ⏱️ Rate limited to 10 requests per minute
+        - 🔒 Authentication token required.
+        - 🛠️ Only an authenticated mechanic can edit service tickets.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticket_id
+          in: path
+          required: true
+          type: integer
+          description: Service ticket ID number.
+        - in: body
+          name: body
+          description: |
+            One array of mechanic IDs (integers) for `add_mech_ids` and another array for `remove_mech_ids`.
+            - Either array can remain empty.
+          required: true
+          schema:
+            $ref: "#/definitions/AddRemoveMechanicsPayload"
+          x-example:
+            add_mech_ids: [3, 4]
+            remove_mech_ids: [1, 2]
+      responses:
+        200:
+          description: ✅ Successfully returns the updated service ticket object.
+          schema:
+            $ref: "#/definitions/DetailedServiceTicketResponse"
+        400:
+          description: |
+            ❌ Invalid input or missing required fields in the request body.
+            Possible reasons:
+            - `add_mech_ids` and `remove_mech_ids` fields takes an array of integers (existing mechanic IDs), or else input empty array(s).
+            - Cannot remove a mechanic that is not already on the service ticket.
+            - Cannot add a mechanic that already exists on the service ticket (no duplicates).
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: |
+            🔎❓ Resource not found.
+            Possible reasons:
+            - Mechanic with ID from token does not exist.
+            - Service ticket with provided ID does not exist.
+            - Mechanic(s) with ID provided in body not found.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 10 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+  /service_tickets/by-car/{car_num}:
+    get:
+      tags:
+        - service tickets
+      summary: Get all service tickets associated with a specific car by car number.
+      description: |
+        Returns a paginated list of all service ticket data linked to a single car.
+        - 🧠 Response is cached for 60 seconds.
+        - 🔒 Authentication token required.
+        - 🛠️ Only accessible by the authenticated customer for cars associated with their account only.
+        - The car number indicates the order of the car in the customer's account. A single car would have a car number of 1.
+        - Ordered by `created_at` datetime from newest to oldest (descending)
+        - 🔁 Use `page` and `per_page` query parameters to paginate results.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: car_num
+          in: path
+          required: true
+          type: integer
+          description: The car number indicates the order of the car in the customer's account. A single car would have a car number of 1.
+      responses:
+        200:
+          description: |
+            ✅ Successfully returns a paginated list of service tickets if data is found, or a message if no data exists.
+            Possible responses:
+            - List of service ticket object(s).
+            - Message: No car associated with the account.
+            - Message: No service ticket(s) associated with the car.
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/ServiceTicketResponse"
+        400:
+          description: ❌ Invalid pagination parameters (`page` or `per_page`)
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: |
+            🔎❓ Resource not found.
+            Possible reasons:
+            - Pagination page does not exist.
+            - Customer with ID from token does not exist.
+            - Car with provided car number does not exist.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+  /service_tickets/by-account:
+    get:
+      tags:
+        - service tickets
+      summary: Get all service tickets for a single customer.
+      description: |
+        Returns all service ticket objects for all cars that are associated with a single customer.
+        - 🧠 Response is cached for 1 second.
+        - 🔒 Authentication token required.
+        - 🛠️ Customer can only access service tickets associated with their own account.
+        - 🛠️ Mechanics can access service tickets for a specific customer by including the customer's ID as a path parameter.
+        - Ordered by `created_at` datetime from newest to oldest (descending)
+        - 🔁 Use `page` and `per_page` query parameters to paginate results.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: query
+          type: integer
+          description: Customer ID (required for mechanics).
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          description: Page number (starting from 1).
+        - name: per_page
+          in: query
+          type: integer
+          default: 10
+          description: Number of results per page (max 100).
+      responses:
+        200:
+          description: |
+            ✅ Successfully returns a paginated list of service tickets if data is found, or a message if no data exists.
+            Possible responses:
+            - List of service ticket object(s).
+            - Message: No car(s) associated with the account.
+            - Message: No service ticket(s) associated with the account.
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/ServiceTicketResponse"
+        400:
+          description: |
+            ❌ Invalid or missing input.
+            Possible reasons:
+            - Invalid pagination parameters (`page` or `per_page`)
+            - As mechanic, missing customer's id in query parameter (`id`).'
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: |
+            🔎❓ Resource not found.
+            Possible reasons:
+            - Pagination page does not exist.
+            - User with ID from token does not exist (customer or mechanic).
+            - Customer with provided id does not exist.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+  /service_tickets/{ticket_id}/add-item/{item_id}/count/{count}:
+    patch:
+      tags:
+        - service tickets
+      summary: Add an inventory item to a single service ticket.
+      description: |
+        Adds an inventory item to an existing service ticket using the ticket ID, item ID and item quantity.
+        - ⏱️ Rate limited to 5 requests per minute
+        - 🔒 Authentication token required.
+        - 🛠️ Only an authenticated mechanic can edit service tickets.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticket_id
+          in: path
+          required: true
+          type: integer
+          description: ID number of service ticket.
+        - name: item_id
+          in: path
+          required: true
+          type: integer
+          description: ID number of item to be added.
+        - name: count
+          in: path
+          required: true
+          type: integer
+          description: Desired quantity of the item.
+      responses:
+        200:
+          description: |
+            ✅ Returns a success message including the item name added to the service ticket, service ticket ID, and updated total quantity of the item on the service ticket.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: |
+            🔎❓ Resource not found.
+            Possible reasons:
+            - Service ticket with ID from path does not exist.
+            - Inventory item with ID from path does not exist.
+            - Mechanic with ID from token does not exist.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 5 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+  /service_tickets/{ticket_id}/remove-item/{item_id}:
+    patch:
+      tags:
+        - service tickets
+      summary: Removes an inventory item from a single service ticket.
+      description: |
+        Removes an inventory item from an existing service ticket one at a time using the ticket ID, and item ID.
+        - ⏱️ Rate limited to 5 requests per minute
+        - 🔒 Authentication token required.
+        - 🛠️ Only an authenticated mechanic can edit service tickets.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticket_id
+          in: path
+          required: true
+          type: integer
+          description: ID number of service ticket.
+        - name: item_id
+          in: path
+          required: true
+          type: integer
+          description: ID number of item to be added.
+      responses:
+        200:
+          description: |
+            ✅ Returns a success message including the item name removed from the service ticket, service ticket ID, and updated total quantity of the item on the service ticket.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        400:
+          description: ❌ Specified inventory item is not on the specified service ticket.
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: |
+            🔎❓ Resource not found.
+            Possible reasons:
+            - Service ticket with ID from path does not exist.
+            - Inventory item with ID from path does not exist.
+            - Mechanic with ID from token does not exist.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 5 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+  /inventory:
+    post:
+      tags:
+        - inventory
+      summary: Create a new inventory item.
+      description: |
+        Creates a new inventory item.
+        - ⏱️ Rate limited to 10 requests per minute.
+        - 🔒 Authentication token required.
+        - 🛠️ Only authenticated mechanic can create new item.
+        - Required: `name`, and `price`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: body
+          name: body
+          description: Inventory item information payload
+          required: true
+          schema:
+            $ref: "#/definitions/InventoryItemPayload"
+      responses:
+        201:
+          description: |
+            ✅ New inventory item created successfully.
+            - Returns newly created Inventory object.
+          schema:
+            $ref: "#/definitions/InventoryItemResponse"
+          examples:
+            application/json:
+              id: 1
+              name: Part a
+              price: 100.0
+        400:
+          description: |
+            ❌ Invalid input — the request body is missing required fields or contains invalid data.
+            Possible reasons:
+            - Missing one or more required fields: `name`, or `price`.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: 🔎❓ Mechanic with ID from token does not exist.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        409:
+          description: ⚔️ Conflict — an item with this name already exists.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 10 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+    get:
+      tags:
+        - inventory
+      summary: Get an array of all inventory items.
+      description: |
+        Returns a paginated list of all car profiles.
+        - 🧠 Response is cached for 1 second.
+        - 🔒 Authentication token required.
+        - 🛠️ Only accessible by mechanics.
+        - Ordered by item name (ascending)
+        - 🔁 Use `page` and `per_page` query parameters to paginate results.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          description: Page number (starting from 1).
+        - name: per_page
+          in: query
+          type: integer
+          default: 10
+          description: Number of results per page (max 100).
+      responses:
+        200:
+          description: ✅ Successfully returned a paginated list of inventory items.
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/InventoryItemResponse"
+        400:
+          description: ❌ Invalid pagination parameters (`page` or `per_page`)
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: |
+            🔎❓ Resource not found.
+            Possible reasons:
+            - Pagination page does not exist.
+            - Mechanic with ID from token does not exist.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+  /inventory/{id}:
+    get:
+      tags:
+        - inventory
+      summary: Get data an inventory item by ID.
+      description: |
+        Returns the Inventory object by item ID.
+        - 🧠 Response is cached for 1 second.
+        - 🔒 Authentication token required.
+        - 🛠️ Only accessible by mechanics.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+          description: Inventory item's ID number.
+      responses:
+        200:
+          description: ✅ Successfully returned data for specified inventory item.
+          schema:
+            $ref: "#/definitions/InventoryItemResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: |
+            🔎❓ Resource not found.
+            Possible reasons:
+            - Mechanic with ID from token does not exist.
+            - Inventory item with ID in path does not exist.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+    delete:
+      tags:
+        - inventory
+      summary: Delete inventory item from database by ID.
+      description: |
+        Permanently remove the Inventory item with ID given in path from the database.
+        - ⏱️ Rate limited to 5 requests per minute
+        - 🔒 Authentication token required.
+        - 🛠️ The authenticated customer can only delete cars linked to their account.
+        - 🛠️ The authenticated mechanic can delete any car.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+          description: Inventory item's ID number.
+      responses:
+        200:
+          description: ✅ Successfully deleted item.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        401:
+          description: |
+            ⛔ Authentication required.
+            - Token is missing.
+            - Token is invalid or expired.
+            - Token role or ID is invalid.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+        403:
+          description: 🚫 Access denied.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        404:
+          description: |
+            🔎❓ Resource not found.
+            Possible reasons:
+            - Mechanic with ID from token does not exist.
+            - Inventory item with ID in path does not exist.
+          schema:
+            $ref: "#/definitions/AbortErrorResponse"
+        429:
+          description: |
+            🚦 Rate limit exceeded — too many requests.
+            - This endpoint is limited to 5 requests per minute.
+          schema:
+            $ref: "#/definitions/SimpleMessageResponse"
+
+definitions:
+  SimpleMessageResponse:
+    type: object
+    properties:
+      message:
+        type: string
+
+  AbortErrorResponse:
+    type: object
+    properties:
+      error:
+        type: string
+      message:
+        type: object
+        description: Can be a string or a map of field names with error messages
+      code:
+        type: integer
+        example: 400
+    required:
+      - error
+      - message
+      - code
+
+  LoginCredentials:
+    type: object
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+      - email
+      - password
+
+  LoginResponse:
+    type: object
+    properties:
+      status:
+        type: string
+        example: success
+      message:
+        type: string
+        example: Successfully logged in
+      auth_token:
+        type: string
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    required:
+      - status
+      - message
+      - auth_token
+
+  FullCustomerPayload:
+    type: object
+    properties:
+      name:
+        type: string
+      phone:
+        type: string
+      email:
+        type: string
+      password:
+        type: string
+        format: password
+    required:
+      - name
+      - phone
+      - email
+      - password
+
+  PartialCustomerPayload:
+    type: object
+    properties:
+      name:
+        type: string
+      phone:
+        type: string
+      email:
+        type: string
+      password:
+        type: string
+        format: password
+
+  SingleCustomerResponse:
+    type: object
+    properties:
+      cars:
+        type: array
+        items:
+          $ref: "#/definitions/CarResponse"
+      email:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      phone:
+        type: string
+
+  FullMechanicPayload:
+    type: object
+    properties:
+      name:
+        type: string
+      phone:
+        type: string
+      address:
+        type: string
+      email:
+        type: string
+      password:
+        type: string
+        format: password
+      salary:
+        type: float
+    required:
+      - name
+      - phone
+      - address
+      - email
+      - password
+
+  PartialMechanicPayload:
+    type: object
+    properties:
+      name:
+        type: string
+      phone:
+        type: string
+      address:
+        type: string
+      email:
+        type: string
+      password:
+        type: string
+        format: password
+      salary:
+        type: float
+
+  SingleMechanicResponse:
+    type: object
+    properties:
+      address:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      phone:
+        type: string
+      salary:
+        type: float
+      service_tickets:
+        type: array
+        items:
+          type: integer
+      ticket_count:
+        type: integer
+
+  FullCarPayload:
+    type: object
+    properties:
+      color:
+        type: string
+      customer_id:
+        type: integer
+      make:
+        type: string
+      model:
+        type: string
+      vin:
+        type: string
+      year:
+        type: integer
+    required:
+      - color
+      - customer_id
+      - make
+      - model
+      - vin
+      - year
+
+  PartialCarPayload:
+    type: object
+    properties:
+      color:
+        type: string
+      customer_id:
+        type: integer
+      make:
+        type: string
+      model:
+        type: string
+      vin:
+        type: string
+      year:
+        type: integer
+
+  CarResponse:
+    type: object
+    properties:
+      color:
+        type: string
+      customer_id:
+        type: integer
+      make:
+        type: string
+      model:
+        type: string
+      service_tickets:
+        type: array
+        items:
+          type: integer
+      vin:
+        type: string
+      year:
+        type: integer
+
+  Car:
+    type: object
+    properties:
+      color:
+        type: string
+      customer_id:
+        type: integer
+      make:
+        type: string
+      model:
+        type: string
+      vin:
+        type: string
+      year:
+        type: integer
+
+  ServiceTicketResponse:
+    type: object
+    properties:
+      car:
+        $ref: "#/definitions/Car"
+      created_at:
+        type: string
+        format: date-time
+        example: "2025-10-30T15:23:46"
+      id:
+        type: integer
+      mechanics:
+        type: array
+        items:
+          type: string
+          example: John
+      service_desc:
+        type: string
+        example: Oil change
+
+  DetailedServiceTicketResponse:
+    type: object
+    properties:
+      car:
+        $ref: "#/definitions/Car"
+      created_at:
+        type: string
+        format: date-time
+        example: "2025-10-30T15:23:46"
+      customer:
+        type: object
+        properties:
+          id:
+            type: integer
+          name:
+            type: string
+          phone:
+            type: string
+      id:
+        type: integer
+      mechanics:
+        type: array
+        items:
+          type: string
+      service_desc:
+        type: string
+
+  AddRemoveMechanicsPayload:
+    type: object
+    description: Either can remain empty arrays
+    properties:
+      add_mech_ids:
+        type: array
+        items:
+          type: integer
+      remove_mech_ids:
+        type: array
+        items:
+          type: integer
+
+  InventoryItemPayload:
+    type: object
+    properties:
+      name:
+        type: string
+      price:
+        typr: float
+    required:
+      - name
+      - price
+
+  InventoryItemResponse:
+    type: object
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      price:
+        type: float

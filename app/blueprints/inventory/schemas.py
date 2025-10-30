@@ -6,7 +6,7 @@ class InventorySchema(ma.SQLAlchemyAutoSchema):
   class Meta:
     model = Inventory
     load_instance = True
-  price = fields.Float()
+  price = fields.Float(required=True)
     
 inventory_schema = InventorySchema()
 inventories_schema = InventorySchema(many=True)
