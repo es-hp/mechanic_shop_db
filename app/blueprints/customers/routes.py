@@ -82,4 +82,4 @@ def delete_customer(user, role):
   check_role(role, 'customer')
   db.session.delete(user)
   db.session.commit()
-  return jsonify({"message": f"Successfully deleted your account."}), 200
+  return jsonify({"message": "Successfully deleted your account."}), 200

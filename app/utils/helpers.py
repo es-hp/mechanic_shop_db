@@ -11,13 +11,8 @@ from typing import Dict, cast, Any, Type, TypeVar
 
 def handle_http_exception(e):
   response = e.get_response()
-  if isinstance(e.description, dict):
-    message = e.description
-  else:
-    message = str(e.description)
-  response.data = jsonify({'error': e.name, 'message': message, 'code': e.code}).data
-  response.content_type = 'application/json'
-  return response
+  message = e.description if isinstance(e.description, dict) else str(e.description)
+  return jsonify({'error': e.name, 'message': message, 'code': e.code}), e.code
 
 
 def get_or_404(model, obj_id, name='Requested object'):

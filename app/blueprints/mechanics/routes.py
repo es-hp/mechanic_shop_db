@@ -54,7 +54,7 @@ def get_mechanics(user, role):
 @mechanics_bp.route("/my-account", methods=['GET'])
 @cache.cached(timeout=60)
 @token_required
-def get_customer(user, role):
+def get_mechanic(user, role):
   check_role(role, 'mechanic')
   _, mechanics, *rest = Mechanic.get_ticket_counts()
   mechanic = next((m for m in mechanics if m.id == user.id), None)
