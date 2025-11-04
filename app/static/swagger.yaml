@@ -3,9 +3,9 @@ info:
   title: Mechanic Shop API
   description: (educational) This is an API to manage the customers, mechanics, cars, service tickets, and inventory of a mechanic shop.
   version: "1.0.0"
-host: "127.0.0.1:5000"
+host: "mechanic-shop-db-gbne.onrender.com"
 schemes:
-  - http
+  - https
 consumes:
   - application/json
 produces:
