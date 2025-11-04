@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class DevelopmentConfig:
-  SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
+  SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
   DEBUG = True
   
 class TestingConfig:
@@ -13,4 +13,5 @@ class TestingConfig:
   CACHE_TYPE = 'SimpleCache'
 
 class ProductionConfig:
-  pass
+  SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+  CACHE_TYPE = 'SimpleCache'
